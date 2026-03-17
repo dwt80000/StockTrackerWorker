@@ -4,7 +4,20 @@ import random
 
 async def on_fetch(request, env):
     try:
-        # 1. Parse parameters
+        # 1. Authentication Check
+        # Ensure the client provides a correct X-API-Key header
+        access_key = getattr(env, "WORKER_ACCESS_KEY", None)
+        client_key = request.headers.get("X-API-Key")
+        
+        # If a secret is set in the environment, we must validate the client's key
+        if access_key and client_key != access_key:
+            return Response.new(
+                json.dumps({"error": "Unauthorized: Invalid or missing X-API-Key"}), 
+                status=401,
+                headers=[["Content-Type", "application/json"], ["Access-Control-Allow-Origin", "*"]]
+            )
+
+        # 2. Parse parameters
         url_str = str(request.url)
         symbols_str = "AAPL"
         if "?symbols=" in url_str:
@@ -14,13 +27,11 @@ async def on_fetch(request, env):
 
         symbols = [s.strip().upper() for s in symbols_str.split(",") if s.strip()]
 
-        # 2. Load Balancing: Handle multiple API keys
-        # We look for FINNHUB_KEYS (semicolon separated) or fall back to FINNHUB_API_KEY
+        # 3. Load Balancing: Handle multiple API keys
         keys_str = getattr(env, "FINNHUB_KEYS", None) or getattr(env, "FINNHUB_API_KEY", None)
         if not keys_str:
             return Response.new(json.dumps({"error": "Config Error: No API Keys found"}), status=200)
         
-        # Split by semicolon or comma and clean up
         api_keys = [k.strip() for k in keys_str.replace(",", ";").split(";") if k.strip()]
         
         def get_random_key():
@@ -28,10 +39,9 @@ async def on_fetch(request, env):
 
         results = {}
 
-        # 3. Process each symbol
+        # 4. Process each symbol
         for symbol in symbols:
             try:
-                # Use a random key for each symbol to distribute load
                 current_key = get_random_key()
                 
                 # Fetch Quote
@@ -46,13 +56,8 @@ async def on_fetch(request, env):
                 metrics = m_data.get("metric", {})
 
                 # Metric fallbacks (Key-chaining)
-                # P/E Ratio: try multiple variations
                 pe = metrics.get("peNormalized") or metrics.get("peTTM") or metrics.get("peBasicExclExtraTTM") or "N/A"
-                
-                # MA200: try multiple variations
                 ma200 = metrics.get("200DayMovingAverage") or metrics.get("ma200") or "N/A"
-                
-                # MA50: try multiple variations
                 ma50 = metrics.get("50DayMovingAverage") or metrics.get("ma50") or "N/A"
 
                 results[symbol] = {
