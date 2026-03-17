@@ -5,11 +5,9 @@ import random
 async def on_fetch(request, env):
     try:
         # 1. Authentication Check
-        # Ensure the client provides a correct X-API-Key header
         access_key = getattr(env, "WORKER_ACCESS_KEY", None)
         client_key = request.headers.get("X-API-Key")
         
-        # If a secret is set in the environment, we must validate the client's key
         if access_key and client_key != access_key:
             return Response.new(
                 json.dumps({"error": "Unauthorized: Invalid or missing X-API-Key"}), 
@@ -27,7 +25,7 @@ async def on_fetch(request, env):
 
         symbols = [s.strip().upper() for s in symbols_str.split(",") if s.strip()]
 
-        # 3. Load Balancing: Handle multiple API keys
+        # 3. Load Balancing
         keys_str = getattr(env, "FINNHUB_KEYS", None) or getattr(env, "FINNHUB_API_KEY", None)
         if not keys_str:
             return Response.new(json.dumps({"error": "Config Error: No API Keys found"}), status=200)
@@ -47,15 +45,17 @@ async def on_fetch(request, env):
                 # Fetch Quote
                 quote_url = f"https://finnhub.io/api/v1/quote?symbol={symbol}&token={current_key}"
                 q_resp = await fetch(quote_url)
-                q_data = json.loads(await q_resp.text())
+                q_text = await q_resp.text()
+                q_data = json.loads(q_text)
 
-                # Fetch Basic Financials (P/E, MA200, etc)
+                # Fetch Basic Financials
                 metric_url = f"https://finnhub.io/api/v1/stock/metric?symbol={symbol}&metric=all&token={current_key}"
                 m_resp = await fetch(metric_url)
-                m_data = json.loads(await m_resp.text())
+                m_text = await m_resp.text()
+                m_data = json.loads(m_text)
                 metrics = m_data.get("metric", {})
 
-                # Metric fallbacks (Key-chaining)
+                # Metric fallbacks
                 pe = metrics.get("peNormalized") or metrics.get("peTTM") or metrics.get("peBasicExclExtraTTM") or "N/A"
                 ma200 = metrics.get("200DayMovingAverage") or metrics.get("ma200") or "N/A"
                 ma50 = metrics.get("50DayMovingAverage") or metrics.get("ma50") or "N/A"
@@ -73,7 +73,11 @@ async def on_fetch(request, env):
                     "ma50": ma50,
                     "week52_high": metrics.get("52WeekHigh", "N/A"),
                     "week52_low": metrics.get("52WeekLow", "N/A"),
-                    "status": "success"
+                    "status": "success",
+                    "debug": {
+                        "raw_quote": q_data,
+                        "raw_metrics": metrics
+                    }
                 }
             except Exception as item_err:
                 results[symbol] = {"status": "error", "detail": str(item_err)}
