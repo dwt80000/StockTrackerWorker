@@ -1,2 +1,0 @@
-# Required for Cloudflare Workers deployment
-# No dependencies needed for current index.py
