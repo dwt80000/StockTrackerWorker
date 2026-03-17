@@ -12,20 +12,20 @@ async def on_fetch(request, env):
             return Response.new(json.dumps({"error": "Symbol missing. Use ?symbol=AAPL"}), 
                                headers={"content-type": "application/json"}, status=400)
 
-        # 安全获取 API Key
+        # 2. Get API Key safely
         api_key = getattr(env, "FINNHUB_API_KEY", None)
         if not api_key:
             return Response.new(json.dumps({"error": "Variable FINNHUB_API_KEY not found"}), status=500)
 
         api_url = f"https://finnhub.io/api/v1/quote?symbol={symbol.upper()}&token={api_key}"
         
-        # 发起请求
+        # 3. Fetch data
         resp = await fetch(api_url)
-        # 强制转换为字典格式以防万一
         data = await resp.json()
         
-        # 转换成标准 Python 字典进行读取，防止属性报错
-        res_dict = dict(data)
+        # 4. Convert JsProxy to Python dict using .to_py()
+        # This fixes the "'pyodide.ffi.JsProxy' object is not iterable" crash
+        res_dict = data.to_py()
         
         processed = {
             "symbol": symbol.upper(),
@@ -37,5 +37,5 @@ async def on_fetch(request, env):
         return Response.new(json.dumps(processed), headers={"content-type": "application/json"})
 
     except Exception as e:
-        # 如果报错，把具体错误打印出来，这样我们就能看到是哪一行坏了
+        # Return the specific error message for easier debugging
         return Response.new(json.dumps({"crash_reason": str(e)}), status=500)
