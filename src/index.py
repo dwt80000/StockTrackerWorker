@@ -4,7 +4,7 @@ from urllib.parse import urlparse, parse_qs
 
 async def on_fetch(request, env):
     try:
-        # 1. 解析参数
+        # 1. Parse parameters
         url = request.url
         parsed_url = urlparse(url)
         query_params = parse_qs(parsed_url.query)
@@ -14,8 +14,8 @@ async def on_fetch(request, env):
             return Response.new(json.dumps({"error": "Symbol is required"}), 
                                headers={"content-type": "application/json"}, status=400)
 
-        # 2. 获取 API Key (确保变量名与后台一致)
-        # 尝试使用 getattr 以防 env 对象包装方式不同
+        # 2. Get API Key (ensure variable name matches dashboard)
+        # Use getattr in case the env object is wrapped differently
         api_key = getattr(env, "FINNHUB_API_KEY", None)
         
         if not api_key:
@@ -24,11 +24,11 @@ async def on_fetch(request, env):
 
         target_url = f"https://finnhub.io/api/v1/quote?symbol={symbol.upper()}&token={api_key}"
         
-        # 3. 转发请求
+        # 3. Forward request
         resp = await fetch(target_url)
         data = await resp.json()
 
-        # 4. 加工数据
+        # 4. Process data
         processed_data = {
             "symbol": symbol.upper(),
             "price": data.c,
@@ -43,5 +43,5 @@ async def on_fetch(request, env):
                                "Access-Control-Allow-Origin": "*"
                            })
     except Exception as e:
-        # 这样你可以看到具体的错误信息，而不是模糊的 1101
+        # This allows viewing detailed error messages instead of a vague 1101
         return Response.new(json.dumps({"error": str(e)}), status=500)
