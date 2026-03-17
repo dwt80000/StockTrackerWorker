@@ -43,5 +43,5 @@ async def on_fetch(request, env):
                                "Access-Control-Allow-Origin": "*"
                            })
     except Exception as e:
-        # This allows viewing detailed error messages instead of a vague 1101 
+        # This allows viewing detailed error messages instead of a vague 1101
         return Response.new(json.dumps({"error": str(e)}), status=500)
