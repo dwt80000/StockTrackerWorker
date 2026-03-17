@@ -1,6 +1,7 @@
 name = "stock-tracker-proxy"
 main = "src/index.py"
 compatibility_date = "2024-05-02"
+compatibility_flags = ["python_workers"]
 
 # [vars]
 # FINNHUB_API_KEY = "your_key_here" # 不建议写在这里，建议使用 secret
